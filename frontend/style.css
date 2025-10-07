@@ -22,7 +22,7 @@ h1 {
   flex: 1;
   background: #fff;
   margin: 0 20px;
-  border-radius: 30px;
+  border-radius: 15px;
   padding: 15px;
   overflow-y: auto;
   height: 60vh; /* altura fija */
@@ -54,9 +54,9 @@ h1 {
   margin-left: auto;
 }
 
-/* Input y botón (fijo abajo) */
+/*input y botones */
 .chat-container {
-  position: fixed;
+  position: sticky;
   bottom: 0;
   left: 0;
   width: 100%;
