@@ -93,7 +93,7 @@ h1 {
 }
 
 /* Hover */
-#btn:hover {
+#btn:hover{
   background-color: #0056b3;
   transform: scale(1.05);
 }
@@ -114,4 +114,32 @@ h1 {
 #btn-voz:hover {
   background-color: #0056b3;
   transform: scale(1.05);
+}
+
+/*para q salga texto al pasar mouse por encima*/
+.tooltip {
+  position: relative;
+}
+
+.tooltip::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: 130%;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: #333;
+  color: #fff;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  opacity: 0;
+  pointer-events: none;
+  white-space: nowrap;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  transform-origin: bottom center;
+}
+
+.tooltip:hover::after {
+  opacity: 1;
+  transform: translateX(-50%) translateY(-3px);
 }
