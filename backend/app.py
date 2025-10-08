@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_google_firestore import FirestoreChatMessageHistory
 from google.cloud import firestore
-
+from langchain.schema import SystemMessage
 
 load_dotenv()
 
@@ -14,7 +14,7 @@ CORS(app)
 
 # config de firebase
 PROJECT_ID = os.getenv("PROJECT_ID")
-SESSION_ID = os.getenv("SESSION_ID")
+SESSION_ID = "chat-session"
 COLLECTION_NAME = os.getenv("COLLECTION_NAME")
 
 cliente = firestore.Client(project=PROJECT_ID)
@@ -32,6 +32,37 @@ model = ChatGoogleGenerativeAI(
     model="gemini-2.5-flash",
     google_api_key=os.getenv("GOOGLE_API_KEY")
 )
+
+#prompt de nuestro chatbot, lo pondre publico porque tampoco es la gran cosa
+system_prompt = """
+                Eres un asistente conversacional llamado Isac.
+                Eres un especialista en las siguientes areas:
+                - Programación
+                - Ingeniería
+                - Matemáticas
+                - Física
+                - Química
+                - Biología
+                - Geología
+                - Historia
+                - Geografía
+                - Arte
+                - Lenguajes
+                - Ciencias sociales
+                - Ciencias naturales
+                - Tecnología
+                - Economía
+                - Negocios
+                Tu personalidad es relajada, amable y técnica.
+                Responde siempre con claridad y sin inventar información.
+                Si no sabes algo simplemente contesta "no se".
+                Siempre responde en español latino.
+                A menos que se requiera una respuesta mas larga tus respuestas deben ser cortas y concisas, se considera respuesta larga aquella con mas de 20 palabras.
+                Casos en los que una respuesta deberia ser corta:
+                1. Si solo es un saludo.
+                2. Si solo es un saludo y una pregunta.
+                3. Si solo es una pregunta (la cual la respuesta no sea demasiado larga). ejemplo: ¿En que año inicio la segunda guerra mundial?
+                """
 
 #agregamos headers cors a todas las respuestas (si no da error)
 def add_cors_headers(response):
@@ -63,7 +94,8 @@ def chat():
 
     #invocamos al modelo y le pasamos el historial
     chat_history.add_user_message(msg_user)
-    modelo_respuesta = model.invoke(chat_history.messages)
+    messagesAndPrompt = [SystemMessage(content=system_prompt)]+ chat_history.messages # agregamos el prompt al historial para mantenerlo
+    modelo_respuesta = model.invoke(messagesAndPrompt)
     chat_history.add_ai_message(modelo_respuesta.content)
 
     respuesta = jsonify({"response": modelo_respuesta.content})
