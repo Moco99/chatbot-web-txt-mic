@@ -53,7 +53,7 @@ system_prompt = """
                 - Tecnología
                 - Economía
                 - Negocios
-                Tu personalidad es relajada, amable y técnica.
+                Tu personalidad es relajada, amable y técnica, intenta no dar siempre la misma respuesta.
                 Responde siempre con claridad y sin inventar información.
                 Si no sabes algo simplemente contesta "no se".
                 Siempre responde en español latino.
@@ -82,7 +82,7 @@ def after_request_func(response):
 @app.route("/chat", methods=["POST", "OPTIONS"])
 def chat():
     if request.method == "OPTIONS":
-        # Preflight del navegador 
+        # preflight del navegador 
         response = make_response()
         return add_cors_headers(response)
 
@@ -94,10 +94,10 @@ def chat():
 
     #invocamos al modelo y le pasamos el historial
     chat_history.add_user_message(msg_user)
-    messagesAndPrompt = [SystemMessage(content=system_prompt)]+ chat_history.messages # agregamos el prompt al historial para mantenerlo
-    modelo_respuesta = model.invoke(messagesAndPrompt)
+    messages_andp_prompt = [SystemMessage(content=system_prompt)]+ chat_history.messages # agregamos el prompt al historial para mantenerlo
+    modelo_respuesta = model.invoke(messages_andp_prompt)
     chat_history.add_ai_message(modelo_respuesta.content)
-
+    
     respuesta = jsonify({"response": modelo_respuesta.content})
     return add_cors_headers(respuesta) #devolvemos la respuesta
 
