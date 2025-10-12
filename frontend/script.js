@@ -3,6 +3,7 @@ const btnVoz = document.getElementById('btn-voz');
 const input = document.getElementById('input');
 const messages = document.getElementById('messages');
 
+
 async function enviarMensaje() {
     const texto = input.value.trim();
     if(!texto) return;
@@ -44,3 +45,8 @@ input.addEventListener('keypress', (event) => {
         enviarMensaje();
     }
 });
+
+function cambiarModoVoz(){
+    window.location.href = "voice-mode.html";
+};
+btnVoz.addEventListener('click', cambiarModoVoz);

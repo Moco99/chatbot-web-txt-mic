@@ -4,7 +4,7 @@ body {
     font-family: Arial, sans-serif;
     margin: 0;
     padding: 0;
-    height: 100vh; /* pantalla completa */
+    height: 100vh; 
     display: flex;
     flex-direction: column;
     justify-content: space-between;
@@ -142,4 +142,33 @@ h1 {
 .tooltip:hover::after {
     opacity: 1;
     transform: translateX(-50%) translateY(-3px);
+}
+
+.conversacion {
+    flex: 1;
+    background: #fff;
+    margin: 0 20px;
+    border-radius: 15px;
+    padding: 15px;
+    overflow-y: auto;
+    height: 60vh; /* altura fija */
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+#microfono {
+    background-color: #007bff;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    margin-left: 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: 0.3s;
+    border-radius: 50px;
+}
+
+/* Hover */
+#microfono:hover {
+    background-color: #0056b3;
+    transform: scale(1.05);
 }

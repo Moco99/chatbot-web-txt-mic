@@ -7,7 +7,7 @@
         <link rel="stylesheet" href="style.css">
     </head>
 
-    <body---->
+    <body>
         
         <h1>ISAC</h1>
 
@@ -15,7 +15,6 @@
         <div class="messages" id="messages">
             <div class="msg bot">Hola me llamo Isac, soy un chatbot, en que puedo ayudarte?</div>
         </div>
-
         <!-- Input y botón (siempre abajo) -->
         <div class="chat-container">
             <input type="text" id="input" placeholder="Escribe aquí tu mensaje...">
@@ -24,14 +23,14 @@
                     <path d="M2 21l21-9L2 3v7l15 2-15 2z"/>
                 </svg>
             </button>
-
-            <button id="btn-voz" class="tooltip" data-tooltip="Cambiar a modo voz">
+            
+            <button id="btn-voz" class="tooltip" data-tooltip="Cambiar a modo voz" >
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="white">
                     <path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v5a3 3 0 0 0 3 3z"/>
                     <path d="M19 11a1 1 0 0 0-2 0 5 5 0 0 1-10 0 1 1 0 0 0-2 0 7 7 0 0 0 6 6.93V21H9a1 1 0 0 0 0 2h6a1 1 0 0 0 0-2h-2v-3.07A7 7 0 0 0 19 11z"/>
                 </svg>
             </button>
-
+            
         </div>
         <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script> <!-- libreria para darle formato a los mensajes -->
         <script src="script.js"></script> 
