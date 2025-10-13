@@ -6,9 +6,11 @@ const textoCapturado = document.getElementById('texto-capturado');
 let grabacion = false;
 let recognition = new SpeechRecognition();
 let textoFinal = "";
+let mediaRecorder;
+let chunks = [];
 
 recognition.lang = "es-MX";
-recognition.continuos = true;
+recognition.continuous = true;
 recognition.interimResults = true;
 
 recognition.onresult = (event)=>{
@@ -27,7 +29,8 @@ recognition.onresult = (event)=>{
     document.getElementById("texto-capturado").innerText = textoFinal + textoInter;
 }
 
-function iniciarConversacion(){
+
+async function iniciarConversacion(){
     console.log("conversacion iniciada con exito");
     grabacion = !grabacion;
     console.log(grabacion);
@@ -35,10 +38,51 @@ function iniciarConversacion(){
     if(!grabacion){
         recognition.stop();
         document.getElementById("texto-capturado").innerText = "procesando...";
+        mediaRecorder.stop();
     }else{
-        recognition.start();
+        try{
+            textoFinal = "";
+            recognition.start();
+            const stream = await navigator.mediaDevices.getUserMedia({audio:true});
+            mediaRecorder = new MediaRecorder(stream);
+            mediaRecorder.start();
+            chunks = [];
+
+            mediaRecorder.ondataavailable = (e)=>{
+            chunks.push(e.data);
+            }
+
+            mediaRecorder.onstop = async ()=>{
+            const blob = new Blob(chunks,{type: chunks[0]?.type || "audio/webm"}); 
+            stream.getTracks().forEach(track => track.stop()); //liberamos el micro despues de grabar
+            await enviarAudio(blob);
+            }
+        }catch(err){
+            console.error("error al iniciar grabacion ",err);
+            textoCapturado.innerText = "Error! Permite el acceso a tu microfono";
+        }
     }
 };
+//enviamos el audio al backend al terminar la grabacion
+async function enviarAudio(blob){
+    try{
+        let dataForm = new FormData();
+        dataForm.append("file",blob,"audio.webm");
+
+        let res = await fetch("http://127.0.0.1:5000/chat", {
+            method: "POST",
+            body : dataForm
+        });
+        const data = await res.json();
+        console.log(data.text);
+        textoCapturado.innerText = data.text;
+    }catch(err){
+        console.error("error al enviar audio ",err);
+        textoCapturado.innerText = "Error al enviar audio";
+    }
+    
+};
+
 btnConversation.addEventListener('click', iniciarConversacion);
 
 
