@@ -6,6 +6,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_google_firestore import FirestoreChatMessageHistory
 from google.cloud import firestore
 from langchain.schema import SystemMessage
+from voice_app import procesar_audio
 
 load_dotenv()
 
@@ -85,7 +86,6 @@ def chat():
         # preflight del navegador 
         response = make_response()
         return add_cors_headers(response)
-
     data = request.get_json()
     msg_user = data.get("message", "").strip()
 
@@ -97,9 +97,36 @@ def chat():
     messages_andp_prompt = [SystemMessage(content=system_prompt)]+ chat_history.messages # agregamos el prompt al historial para mantenerlo
     modelo_respuesta = model.invoke(messages_andp_prompt)
     chat_history.add_ai_message(modelo_respuesta.content)
-    
+
     respuesta = jsonify({"response": modelo_respuesta.content})
     return add_cors_headers(respuesta) #devolvemos la respuesta
+
+#endpoint del modo de voz
+@app.route("/voice",methods=["POST", "OPTIONS"])
+def voice():
+    if request.method == "OPTIONS":
+        # preflight del navegador 
+        response = make_response()
+        return add_cors_headers(response)
+    
+    if "file" not in request.files:
+        return jsonify({"error": "No se encontro el archivo de audio"}), 400
+    
+    file = request.files["file"]
+
+    try:
+        #procesamos el audio recibido del frontend
+        texto_procesado = procesar_audio(file)
+        #agregar el texto procesado al historial y pasarselo al modelo para obtener una respuesta
+        chat_history.add_ai_message(texto_procesado)
+        messages_andp_prompt = [SystemMessage(content=system_prompt)]+ chat_history.messages # agregamos el prompt al historial para mantenerlo
+        modelo_respuesta = model.invoke(messages_andp_prompt)
+        chat_history.add_ai_message(modelo_respuesta.content)
+
+        return jsonify({"text":texto_procesado,"response":modelo_respuesta.content})
+    
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 if __name__ == "__main__":
