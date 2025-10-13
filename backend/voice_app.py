@@ -11,7 +11,7 @@ def procesar_audio(file):
     with tempfile.NamedTemporaryFile(delete=False,suffix=".webm") as temp:
         file.save(temp.name)
         temp_path = temp.name
-
+        s
         with open(temp_path,"rb") as data:
             res = requests.post(f"https://api-inference.huggingface.co/models/{model}",
                                 headers={"Authorization": f"Bearer {hugging_token}"},
