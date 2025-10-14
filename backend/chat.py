@@ -1,17 +1,21 @@
 import os
 from flask import Flask, request, jsonify, make_response
-from flask_cors import CORS 
+from flask_cors import CORS,cross_origin
 from dotenv import load_dotenv
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_google_firestore import FirestoreChatMessageHistory
 from google.cloud import firestore
 from langchain.schema import SystemMessage
-from voice_app import procesar_audio
+from voice_app import procesar_audio, crear_audio
 
 load_dotenv()
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, 
+    origins=["http://127.0.0.1:5500", "http://localhost:5500"],
+    supports_credentials=True,
+    allow_headers=["Content-Type", "Authorization"],
+    methods=["GET", "POST", "OPTIONS"])
 
 # config de firebase
 PROJECT_ID = os.getenv("PROJECT_ID")
@@ -65,49 +69,55 @@ system_prompt = """
                 3. Si solo es una pregunta (la cual la respuesta no sea demasiado larga). ejemplo: ¿En que año inicio la segunda guerra mundial?
                 """
 
-#agregamos headers cors a todas las respuestas (si no da error)
-def add_cors_headers(response):
-    response.headers["Access-Control-Allow-Origin"] = "http://127.0.0.1:5500"
-    response.headers["Access-Control-Allow-Credentials"] = "true" #indica que el fron puede incluir cookies o headers de autorizacion
-    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization" #lista los header que el front puede enviar
-    response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS" #lista de los metodos que el front puede usar
-    return response
-
-
-#nos aseguramos que despues de cada solicitud la funcion se ejecute para añadir las header cors a la respuesta (tenga exito o falle)
-@app.after_request
-def after_request_func(response):
-    return add_cors_headers(response)
-
 #endpoint principal aca
-@app.route("/chat", methods=["POST", "OPTIONS"])
+@app.route("/chat", methods=["POST","OPTIONS"])
 def chat():
     if request.method == "OPTIONS":
-        # preflight del navegador 
-        response = make_response()
-        return add_cors_headers(response)
+        # Manejar preflight explícitamente
+        response = jsonify({"status": "ok"})
+        response.headers.add("Access-Control-Allow-Origin", "http://127.0.0.1:5500")
+        response.headers.add("Access-Control-Allow-Headers", "Content-Type")
+        response.headers.add("Access-Control-Allow-Methods", "POST, OPTIONS")
+        return response, 200
+    
+    print("=" * 50)
+    print("INICIANDO PROCESAMIENTO DE MENSAJE")
+    print("=" * 50)
+
     data = request.get_json()
     msg_user = data.get("message", "").strip()
+    #agregamos mensajes para verlo en la consola y que la depuracion sea mas facil en caso de error
+    print(f"- Mensaje del usuario: {msg_user}")
+    print(f"- Longitud del mensaje: {len(msg_user)}")
 
     if not msg_user: #manejo de mensajes vacios
+        print("ERROR! Mensaje vacio!")
         return jsonify({"response": "Mensaje vacío"}), 400
 
     #invocamos al modelo y le pasamos el historial
     chat_history.add_user_message(msg_user)
+    print("- Agregando mensaje al historial")
     messages_andp_prompt = [SystemMessage(content=system_prompt)]+ chat_history.messages # agregamos el prompt al historial para mantenerlo
+    print("- Invocando modelo...")
     modelo_respuesta = model.invoke(messages_andp_prompt)
+    print("- Obteniendo respuesta del modelo...")
     chat_history.add_ai_message(modelo_respuesta.content)
-
-    respuesta = jsonify({"response": modelo_respuesta.content})
-    return add_cors_headers(respuesta) #devolvemos la respuesta
+    print(f"- Respuesta de ISAC: {modelo_respuesta.content}")
+    print("=" * 50)
+    print("ISAC HA CONTESTADO EL MENSAJE")
+    print("=" * 50)
+    return jsonify({"response":modelo_respuesta.content}) #devolvemos la respuesta
+    
 
 #endpoint del modo de voz
-@app.route("/voice",methods=["POST", "OPTIONS"])
+@app.route("/voice",methods=["POST","OPTIONS"])
 def voice():
     if request.method == "OPTIONS":
-        # preflight del navegador 
-        response = make_response()
-        return add_cors_headers(response)
+        response = jsonify({"status": "ok"})
+        response.headers.add("Access-Control-Allow-Origin", "http://127.0.0.1:5500")
+        response.headers.add("Access-Control-Allow-Headers", "Content-Type")
+        response.headers.add("Access-Control-Allow-Methods", "POST, OPTIONS")
+        return response, 200
     
     if "file" not in request.files:
         return jsonify({"error": "No se encontro el archivo de audio"}), 400
@@ -118,7 +128,7 @@ def voice():
         #procesamos el audio recibido del frontend
         texto_procesado = procesar_audio(file)
         #agregar el texto procesado al historial y pasarselo al modelo para obtener una respuesta
-        chat_history.add_ai_message(texto_procesado)
+        chat_history.add_user_message(texto_procesado)
         messages_andp_prompt = [SystemMessage(content=system_prompt)]+ chat_history.messages # agregamos el prompt al historial para mantenerlo
         modelo_respuesta = model.invoke(messages_andp_prompt)
         chat_history.add_ai_message(modelo_respuesta.content)

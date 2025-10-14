@@ -69,13 +69,14 @@ async function enviarAudio(blob){
         let dataForm = new FormData();
         dataForm.append("file",blob,"audio.webm");
 
-        let res = await fetch("http://127.0.0.1:5000/chat", {
+        let res = await fetch("http://127.0.0.1:5000/voice", {
             method: "POST",
             body : dataForm
         });
         const data = await res.json();
         console.log(data.text);
         textoCapturado.innerText = data.text;
+        textoCapturado.innerText = data.response;
     }catch(err){
         console.error("error al enviar audio ",err);
         textoCapturado.innerText = "Error al enviar audio";
