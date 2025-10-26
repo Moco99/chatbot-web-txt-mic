@@ -8,7 +8,7 @@ import base64
 load_dotenv()
 hugging_token = os.getenv("HUGGING_TOKEN")
 modelSTT = "openai/whisper-large-v3"
-modelTTS = "microsoft/speecht5_tts"
+modelTTS = "suno/bark"
 """
 tuve que agregarle muchas cosas a esta parte porque el debug se me hacia mas facil si veia por terminal como iba el proceso
 """
@@ -139,7 +139,10 @@ def crear_audio(texto):
     
     try:
         payload={ 
-            "inputs":texto
+            "inputs":texto,
+            "parameters": {
+                "history_prompt": "es_speaker_1" # Usamos un preset de voz en español
+            }
             }
         print(f"Enviando texto a {modelTTS}")
         res = requests.post(
@@ -183,6 +186,8 @@ def crear_audio(texto):
         
         if res.status_code != 200:
             print(f"ERROR! Status {res.status_code}")
+            print(f"Respuesta: {res.text}")
+            raise Exception(f"Error en la API de TTS: {res.status_code} - {res.text}")
 
         audio_bytes = res.content
         print(f"Audio generado, longitud de {len(audio_bytes)} bytes")

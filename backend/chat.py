@@ -134,7 +134,7 @@ def voice():
         modelo_respuesta = model.invoke(messages_andp_prompt)
         chat_history.add_ai_message(modelo_respuesta.content)
 
-        audio_base64 = crear_audio(texto_procesado)
+        audio_base64 = crear_audio(modelo_respuesta.content)
 
         return jsonify({
             "text": texto_procesado,
