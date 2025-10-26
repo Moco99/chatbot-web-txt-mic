@@ -3,6 +3,7 @@ from dotenv import load_dotenv
 import tempfile
 import requests
 import time
+import base64
 
 load_dotenv()
 hugging_token = os.getenv("HUGGING_TOKEN")
@@ -123,6 +124,81 @@ def procesar_audio(file):
 
 def crear_audio(texto):
     """
-    Crea un archivo de audio a partir de texto (por implementar)
+    mostramos en terminal de flask como se hace el proceso en caso de necesitar depuracion en algun paso
     """
-    pass
+    print("="*50)
+    print("INICIANDO PROCESAMIENTO DE AUDIO CON TTS")
+    print("="*50)
+    print(f"- Texto a transcribir: {texto}")
+    print(f"- Longitud del texto: {len(texto)} caracteres")
+
+    #tiene limite de 500 asi que si lo supera mandamos error
+    if len(texto) > 500:
+        print("ERROR! El texto es demsiado largo, se truncara a 500 caracteres")
+        texto = texto[:500]
+    
+    try:
+        payload={ 
+            "inputs":texto
+            }
+        print(f"Enviando texto a {modelTTS}")
+        res = requests.post(
+            f"https://api-inference.huggingface.co/models/{modelTTS}",
+            headers={
+                "Authorization": f"Bearer {hugging_token}",
+                "Content-Type": "application/json"
+            },
+            json=payload,
+            timeout=60
+        )
+        print(f"Status code: {res.status_code}")
+
+        #si es que hay coldstart
+
+        if  res.status_code == 503:
+            try:
+                resultado = res.json()
+                print("Cargando modelo...")
+                print(f"Respuesta: {resultado}")
+
+                if "estimated_time" in resultado:
+                    wait_time = min(resultado["estimated_time"], 30)
+                    print(f"   Esperando {wait_time} segundos...")
+                    time.sleep(wait_time + 2)
+
+                    #reintentar
+                    print("Reintentando peticion...")
+                    res = requests.post(
+                        f"https://api-inference.huggingface.co/models/{modelTTS}",
+                        headers={
+                            "Authorization": f"Bearer {hugging_token}",
+                            "Content-Type": "application/json"
+                        },
+                        json=payload,
+                        timeout=60
+                    )
+                    print(f"Nuevo status code: {res.status_code}")
+            except:
+                pass
+        
+        if res.status_code != 200:
+            print(f"ERROR! Status {res.status_code}")
+
+        audio_bytes = res.content
+        print(f"Audio generado, longitud de {len(audio_bytes)} bytes")
+        #convertimos a una base 64 para enviarlo por json
+        audio_base64 = base64.b64encode(audio_bytes).decode("utf-8")
+        print(f"Audio en base 64 con longitud de {len(audio_base64)} caracteres codificado")
+        print("="*50)
+
+        return audio_base64
+    
+    except requests.exceptions.Timeout:
+        print("ERROR! Timeout al generar audio")
+        raise Exception("Timeout al generar audio TTS")
+    except requests.exceptions.RequestException as e:
+        print(f"ERROR! de conexión TTS: {str(e)}")
+        raise Exception(f"Error de conexión TTS: {str(e)}")
+    except Exception as e:
+        print(f"ERROR! TTS: {str(e)}")
+        raise Exception(f"Error al generar audio: {str(e)}")

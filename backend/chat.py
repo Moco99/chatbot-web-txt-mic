@@ -1,6 +1,6 @@
 import os
-from flask import Flask, request, jsonify, make_response
-from flask_cors import CORS,cross_origin
+from flask import Flask, request, jsonify
+from flask_cors import CORS
 from dotenv import load_dotenv
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_google_firestore import FirestoreChatMessageHistory
@@ -11,11 +11,17 @@ from voice_app import procesar_audio, crear_audio
 load_dotenv()
 
 app = Flask(__name__)
-CORS(app, 
-    origins=["http://127.0.0.1:5500", "http://localhost:5500"],
-    supports_credentials=True,
-    allow_headers=["Content-Type", "Authorization"],
-    methods=["GET", "POST", "OPTIONS"])
+
+# CORS simplificado - permite todo desde 127.0.0.1:5500
+CORS(app)
+
+@app.after_request
+def after_request(response):
+    response.headers.add('Access-Control-Allow-Origin', 'http://127.0.0.1:5500')
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+    response.headers.add('Access-Control-Allow-Credentials', 'true')
+    return response
 
 # config de firebase
 PROJECT_ID = os.getenv("PROJECT_ID")
@@ -24,8 +30,7 @@ COLLECTION_NAME = os.getenv("COLLECTION_NAME")
 
 cliente = firestore.Client(project=PROJECT_ID)
 
-
-#chat history
+# chat history
 chat_history = FirestoreChatMessageHistory(
     session_id=SESSION_ID,
     collection=COLLECTION_NAME,
@@ -38,7 +43,7 @@ model = ChatGoogleGenerativeAI(
     google_api_key=os.getenv("GOOGLE_API_KEY")
 )
 
-#prompt de nuestro chatbot, lo pondre publico porque tampoco es la gran cosa
+# prompt de nuestro chatbot
 system_prompt = """
                 Eres un asistente conversacional llamado Isac.
                 Eres un especialista en las siguientes areas:
@@ -69,16 +74,11 @@ system_prompt = """
                 3. Si solo es una pregunta (la cual la respuesta no sea demasiado larga). ejemplo: ¿En que año inicio la segunda guerra mundial?
                 """
 
-#endpoint principal aca
-@app.route("/chat", methods=["POST","OPTIONS"])
+# endpoint principal
+@app.route("/chat", methods=["POST", "OPTIONS"])
 def chat():
     if request.method == "OPTIONS":
-        # Manejar preflight explícitamente
-        response = jsonify({"status": "ok"})
-        response.headers.add("Access-Control-Allow-Origin", "http://127.0.0.1:5500")
-        response.headers.add("Access-Control-Allow-Headers", "Content-Type")
-        response.headers.add("Access-Control-Allow-Methods", "POST, OPTIONS")
-        return response, 200
+        return jsonify({"status": "ok"}), 200
     
     print("=" * 50)
     print("INICIANDO PROCESAMIENTO DE MENSAJE")
@@ -86,54 +86,61 @@ def chat():
 
     data = request.get_json()
     msg_user = data.get("message", "").strip()
-    #agregamos mensajes para verlo en la consola y que la depuracion sea mas facil en caso de error
     print(f"- Mensaje del usuario: {msg_user}")
     print(f"- Longitud del mensaje: {len(msg_user)}")
 
-    if not msg_user: #manejo de mensajes vacios
+    if not msg_user:
         print("ERROR! Mensaje vacio!")
         return jsonify({"response": "Mensaje vacío"}), 400
-
-    #invocamos al modelo y le pasamos el historial
+    
+    # invocamos al modelo y le pasamos el historial
     chat_history.add_user_message(msg_user)
     print("- Agregando mensaje al historial")
-    messages_andp_prompt = [SystemMessage(content=system_prompt)]+ chat_history.messages # agregamos el prompt al historial para mantenerlo
+    messages_andp_prompt = [SystemMessage(content=system_prompt)] + chat_history.messages
     print("- Invocando modelo...")
-    modelo_respuesta = model.invoke(messages_andp_prompt)
-    print("- Obteniendo respuesta del modelo...")
-    chat_history.add_ai_message(modelo_respuesta.content)
-    print(f"- Respuesta de ISAC: {modelo_respuesta.content}")
-    print("=" * 50)
-    print("ISAC HA CONTESTADO EL MENSAJE")
-    print("=" * 50)
-    return jsonify({"response":modelo_respuesta.content}) #devolvemos la respuesta
     
+    try:
+        modelo_respuesta = model.invoke(messages_andp_prompt)
+        print("- Obteniendo respuesta del modelo...")
+        chat_history.add_ai_message(modelo_respuesta.content)
+        print(f"- Respuesta de ISAC: {modelo_respuesta.content}")
+        print("=" * 50)
+        print("ISAC HA CONTESTADO EL MENSAJE")
+        print("=" * 50)
+        return jsonify({"response": modelo_respuesta.content})
+    except Exception as e:
+        print(f"- Error: {e}")
+        return jsonify({"error": str(e)}), 500
 
-#endpoint del modo de voz
-@app.route("/voice",methods=["POST","OPTIONS"])
+# endpoint del modo de voz
+@app.route("/voice", methods=["POST", "OPTIONS"])
 def voice():
     if request.method == "OPTIONS":
-        response = jsonify({"status": "ok"})
-        response.headers.add("Access-Control-Allow-Origin", "http://127.0.0.1:5500")
-        response.headers.add("Access-Control-Allow-Headers", "Content-Type")
-        response.headers.add("Access-Control-Allow-Methods", "POST, OPTIONS")
-        return response, 200
+        return jsonify({"status": "ok"}), 200
     
     if "file" not in request.files:
-        return jsonify({"error": "No se encontro el archivo de audio"}), 400
+        return jsonify({"error": "No se encontró el archivo de audio"}), 400
     
     file = request.files["file"]
 
     try:
-        #procesamos el audio recibido del frontend
         texto_procesado = procesar_audio(file)
-        #agregar el texto procesado al historial y pasarselo al modelo para obtener una respuesta
+        
+        if not texto_procesado:
+            return jsonify({"error": "No se pudo transcribir el audio"}), 400
+        
         chat_history.add_user_message(texto_procesado)
-        messages_andp_prompt = [SystemMessage(content=system_prompt)]+ chat_history.messages # agregamos el prompt al historial para mantenerlo
+        messages_andp_prompt = [SystemMessage(content=system_prompt)] + chat_history.messages
         modelo_respuesta = model.invoke(messages_andp_prompt)
         chat_history.add_ai_message(modelo_respuesta.content)
 
-        return jsonify({"text":texto_procesado,"response":modelo_respuesta.content})
+        audio_base64 = crear_audio(texto_procesado)
+
+        return jsonify({
+            "text": texto_procesado,
+            "response": modelo_respuesta.content,
+            "audio": audio_base64
+        })
     
     except Exception as e:
         return jsonify({"error": str(e)}), 500
