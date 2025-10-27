@@ -4,11 +4,12 @@ import tempfile
 import requests
 import time
 import base64
+from google.cloud import texttospeech
 
 load_dotenv()
 hugging_token = os.getenv("HUGGING_TOKEN")
 modelSTT = "openai/whisper-large-v3"
-modelTTS = "suno/bark"
+#modelTTS = "suno/bark"
 """
 tuve que agregarle muchas cosas a esta parte porque el debug se me hacia mas facil si veia por terminal como iba el proceso
 """
@@ -131,79 +132,30 @@ def crear_audio(texto):
     print("="*50)
     print(f"- Texto a transcribir: {texto}")
     print(f"- Longitud del texto: {len(texto)} caracteres")
-
-    #tiene limite de 500 asi que si lo supera mandamos error
-    if len(texto) > 500:
-        print("ERROR! El texto es demsiado largo, se truncara a 500 caracteres")
-        texto = texto[:500]
-    
     try:
-        payload={ 
-            "inputs":texto,
-            "parameters": {
-                "history_prompt": "es_speaker_1" # Usamos un preset de voz en español
-            }
-            }
-        print(f"Enviando texto a {modelTTS}")
-        res = requests.post(
-            f"https://api-inference.huggingface.co/models/{modelTTS}",
-            headers={
-                "Authorization": f"Bearer {hugging_token}",
-                "Content-Type": "application/json"
-            },
-            json=payload,
-            timeout=60
+        client = texttospeech.TextToSpeechClient()
+        systhesis_input = texttospeech.SynthesisInput(text=texto)
+        voice = texttospeech.VoiceSelectionParams(
+            language_code="es-US",
+            name="es-US-Studio-B"
         )
-        print(f"Status code: {res.status_code}")
 
-        #si es que hay coldstart
-
-        if  res.status_code == 503:
-            try:
-                resultado = res.json()
-                print("Cargando modelo...")
-                print(f"Respuesta: {resultado}")
-
-                if "estimated_time" in resultado:
-                    wait_time = min(resultado["estimated_time"], 30)
-                    print(f"   Esperando {wait_time} segundos...")
-                    time.sleep(wait_time + 2)
-
-                    #reintentar
-                    print("Reintentando peticion...")
-                    res = requests.post(
-                        f"https://api-inference.huggingface.co/models/{modelTTS}",
-                        headers={
-                            "Authorization": f"Bearer {hugging_token}",
-                            "Content-Type": "application/json"
-                        },
-                        json=payload,
-                        timeout=60
-                    )
-                    print(f"Nuevo status code: {res.status_code}")
-            except:
-                pass
-        
-        if res.status_code != 200:
-            print(f"ERROR! Status {res.status_code}")
-            print(f"Respuesta: {res.text}")
-            raise Exception(f"Error en la API de TTS: {res.status_code} - {res.text}")
-
-        audio_bytes = res.content
-        print(f"Audio generado, longitud de {len(audio_bytes)} bytes")
-        #convertimos a una base 64 para enviarlo por json
-        audio_base64 = base64.b64encode(audio_bytes).decode("utf-8")
-        print(f"Audio en base 64 con longitud de {len(audio_base64)} caracteres codificado")
+        audio_config = texttospeech.AudioConfig(
+            audio_encoding=texttospeech.AudioEncoding.MP3,
+        )
+        #prints para debug
+        print(f"Realizando solicitud de audio a google TTS...")
+        response = client.synthesize_speech(input=systhesis_input, 
+                                            voice=voice, 
+                                            audio_config=audio_config
+                                            )
+        print("Audio generado y recibido de google")
+        audio_bytes = response.audio_content
+        print(f"Audio generado con longitud de {len(audio_bytes)} bytes")
+        audio_64 = base64.b64encode(audio_bytes).decode("utf-8")
+        print(f"Audio en base 64 con longitud de {len(audio_64)} caracteres codificado")
         print("="*50)
+        return audio_64
 
-        return audio_base64
-    
-    except requests.exceptions.Timeout:
-        print("ERROR! Timeout al generar audio")
-        raise Exception("Timeout al generar audio TTS")
-    except requests.exceptions.RequestException as e:
-        print(f"ERROR! de conexión TTS: {str(e)}")
-        raise Exception(f"Error de conexión TTS: {str(e)}")
     except Exception as e:
         print(f"ERROR! TTS: {str(e)}")
-        raise Exception(f"Error al generar audio: {str(e)}")

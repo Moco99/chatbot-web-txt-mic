@@ -13,15 +13,8 @@ load_dotenv()
 app = Flask(__name__)
 
 # CORS simplificado - permite todo desde 127.0.0.1:5500
-CORS(app)
+CORS(app, resources={r"/*": {"origins": "http://127.0.0.1:5500"}}, supports_credentials=True)
 
-@app.after_request
-def after_request(response):
-    response.headers.add('Access-Control-Allow-Origin', 'http://127.0.0.1:5500')
-    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
-    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
-    response.headers.add('Access-Control-Allow-Credentials', 'true')
-    return response
 
 # config de firebase
 PROJECT_ID = os.getenv("PROJECT_ID")
@@ -75,7 +68,7 @@ system_prompt = """
                 """
 
 # endpoint principal
-@app.route("/chat", methods=["POST", "OPTIONS"])
+@app.route("/chat", methods=["POST"])
 def chat():
     if request.method == "OPTIONS":
         return jsonify({"status": "ok"}), 200
@@ -113,7 +106,7 @@ def chat():
         return jsonify({"error": str(e)}), 500
 
 # endpoint del modo de voz
-@app.route("/voice", methods=["POST", "OPTIONS"])
+@app.route("/voice", methods=["POST"])
 def voice():
     if request.method == "OPTIONS":
         return jsonify({"status": "ok"}), 200
